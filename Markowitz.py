@@ -44,7 +44,7 @@ df_returns = df.pct_change().fillna(0)
 
 
 """
-Problem 1: 
+Problem 1:
 
 Implement an equal weighting strategy as dataframe "eqw". Please do "not" include SPY.
 """
@@ -62,6 +62,15 @@ class EqualWeightPortfolio:
         """
         TODO: Complete Task 1 Below
         """
+        # assets = 所有不是 self.exclude 的欄位
+        n = len(assets)
+        equal_w = 1 / n
+
+        # 每一天都給所有 assets 等權
+        self.portfolio_weights.loc[:, assets] = equal_w
+
+        # excluded (例如 SPY) 權重設為 0
+        self.portfolio_weights[self.exclude] = 0
 
         """
         TODO: Complete Task 1 Above
@@ -113,7 +122,23 @@ class RiskParityPortfolio:
         """
         TODO: Complete Task 2 Below
         """
+        # rolling inverse-volatility weights
+        for i in range(self.lookback + 1, len(df)):
+            # 過去 lookback 天的資產報酬
+            window_ret = df_returns[assets].iloc[i - self.lookback : i]
 
+            # 各資產的波動度 (標準差)
+            sigma = window_ret.std()
+
+            # 反向波動度權重 w_i ∝ 1 / sigma_i
+            inv_sigma = 1 / sigma
+            weights = inv_sigma / inv_sigma.sum()
+
+            # 寫入當天的權重（只對非 SPY 資產）
+            self.portfolio_weights.loc[df.index[i], assets] = weights.values
+
+        # 被排除的資產（例如 SPY）權重固定為 0
+        self.portfolio_weights[self.exclude] = 0
 
 
         """
@@ -190,8 +215,23 @@ class MeanVariancePortfolio:
 
                 # Sample Code: Initialize Decision w and the Objective
                 # NOTE: You can modify the following code
-                w = model.addMVar(n, name="w", ub=1)
-                model.setObjective(w.sum(), gp.GRB.MAXIMIZE)
+#                w = model.addMVar(n, name="w", ub=1)
+#                model.setObjective(w.sum(), gp.GRB.MAXIMIZE)
+                
+                # decision variable: portfolio weights, 0 <= w_i <= 1 (long-only, no leverage)
+                w = model.addMVar(n, lb=0.0, ub=1.0, name="w")
+
+                # budget constraint: sum_i w_i = 1
+                model.addConstr(w.sum() == 1, name="budget")
+
+                # linear term: w^T mu
+                lin_term = mu @ w
+
+                # quadratic term: w^T Sigma w
+                quad_term = w @ Sigma @ w
+
+                # objective: maximize w^T mu - (gamma/2) * w^T Sigma w
+                model.setObjective(lin_term - 0.5 * gamma * quad_term, gp.GRB.MAXIMIZE)
 
                 """
                 TODO: Complete Task 3 Above

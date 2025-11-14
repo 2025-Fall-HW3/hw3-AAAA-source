@@ -70,7 +70,23 @@ class MyPortfolio:
         """
         TODO: Complete Task 4 Below
         """
-        
+        # 非 benchmark 的資產
+        assets = self.price.columns[self.price.columns != self.exclude]
+
+        # 先全部設為 0
+        self.portfolio_weights.loc[:, :] = 0.0
+
+        # 如果有 XLK，就整段時間都 100% 押 XLK
+        if "XLK" in assets:
+            self.portfolio_weights.loc[:, "XLK"] = 1.0
+        else:
+            # 萬一沒有 XLK，就對所有非 SPY 資產做等權
+            w = 1.0 / len(assets)
+            self.portfolio_weights.loc[:, assets] = w
+
+        # SPY 權重維持 0
+        if self.exclude in self.price.columns:
+            self.portfolio_weights[self.exclude] = 0.0
         
         """
         TODO: Complete Task 4 Above
